@@ -1,3 +1,4 @@
+use crossbeam::queue::SegQueue;
 use env_logger;
 use evdev;
 use log;
@@ -277,7 +278,10 @@ fn main() -> uinput::Result<()> {
             prev = state;
         }
 
-        thread::yield_now();
+        let dt = t0.elapsed();
+        if dt < Duration::from_micros(500) {
+            thread::sleep(Duration::from_micros(500) - dt);
+        }
     }
 }
 

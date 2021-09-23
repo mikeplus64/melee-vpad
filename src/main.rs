@@ -221,8 +221,8 @@ fn main() -> uinput::Result<()> {
     });
 
     let mut prev = JoyState::default();
-    let mut l_x = 0.0;
-    let mut l_y = 0.0;
+    let mut l_x = 0.0_f32;
+    let mut l_y = 0.0_f32;
     loop {
         let t0 = Instant::now();
         while let Some(state) = q.pop() {
@@ -231,8 +231,8 @@ fn main() -> uinput::Result<()> {
                 let dx = ((state.l_right as i8) as f32) - ((state.l_left as i8) as f32);
                 let dy = ((state.l_down as i8) as f32) - ((state.l_up as i8) as f32);
                 if state.mod1 {
-                    l_x = if dy != 0.0 { 0.5 * (dx + l_x) } else { dx };
-                    l_y = if dx != 0.0 { 0.5 * (dy + l_y) } else { dy };
+                    l_x = if dy != 0.0 { 0.4 * dx + l_x } else { dx };
+                    l_y = if dx != 0.0 { 0.4 * dy + l_y } else { dy };
                 } else {
                     l_x = dx;
                     l_y = dy;

@@ -188,8 +188,8 @@ fn main() -> uinput::Result<()> {
         .min(-127)
         .max(128)
         .event(AbsolutePosition::Z)?
-        .min(-127)
-        .max(128)
+        .min(0)
+        .max(255)
         .event(AbsolutePosition::RX)?
         .min(-127)
         .max(128)
@@ -245,12 +245,13 @@ fn main() -> uinput::Result<()> {
             update_joy(&mut vjoy, &AbsolutePosition::RY, prev.c_y, state.c_y)?;
 
             // trigger
-            update_joy(
-                &mut vjoy,
-                &AbsolutePosition::Z,
-                prev.l_trigger_depth,
-                state.l_trigger_depth,
-            )?;
+            if prev.l_trigger_depth != state.l_trigger_depth {
+                vjoy.position(
+                    &AbsolutePosition::Z,
+                    // this doesn't make any sense to me but it works in dolphin
+                    (127.0 + state.l_trigger_depth * 128.0) as i32,
+                )?;
+            }
 
             // buttons
             for (prev, cur, ev) in &[

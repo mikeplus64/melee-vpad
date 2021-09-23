@@ -8,13 +8,11 @@ use uinput;
 use uinput::event::absolute::Position as AbsolutePosition;
 use uinput::event::controller::{Controller as C, DPad, GamePad as GP};
 
-use crossbeam::queue::SegQueue;
-
 const KEYBOARD_NAME: &str = "CATEX TECH. 84EC-XRGB";
 
-const L_MOD1: f32 = 64.0 / 128.0;
-const L_MOD2: f32 = 48.0 / 128.0;
-const L_MOD12: f32 = 32.0 / 128.0;
+const J_MOD1: f32 = 64.0 / 128.0; // c stick only
+const J_MOD2: f32 = 48.0 / 128.0;
+const J_MOD12: f32 = 32.0 / 128.0; // c stick only
 
 const TRIGGER_MOD1: f32 = 129.0 / 256.0;
 const TRIGGER_MOD2: f32 = 92.0 / 256.0;
@@ -36,6 +34,7 @@ struct JoyState {
     l_active: bool,
     l_y: f32,
     l_x: f32,
+    l_mul: f32,
 
     // c stick
     c_up: bool,
@@ -114,19 +113,21 @@ impl JoyState {
     fn update_analog(&mut self) {
         self.l_x = self.joyval(self.l_right, self.l_left);
         self.l_y = self.joyval(self.l_down, self.l_up);
+        self.l_active = self.l_up || self.l_down || self.l_left || self.l_right;
+        self.l_mul = if self.mod2 { J_MOD2 } else { 1.0 };
         self.c_x = self.joyval(self.c_right, self.c_left);
         self.c_y = self.joyval(self.c_down, self.c_up);
         self.l_trigger_depth = self.triggerval();
-        self.l_active = self.l_up || self.l_down || self.l_left || self.l_right;
     }
 
+    // only used for C stick
     fn joy_modval(&self) -> f32 {
         if self.mod1 && self.mod2 {
-            L_MOD12
+            J_MOD12
         } else if self.mod1 {
-            L_MOD1
+            J_MOD1
         } else if self.mod2 {
-            L_MOD2
+            J_MOD2
         } else {
             1.0
         }
@@ -223,7 +224,6 @@ fn main() -> uinput::Result<()> {
     let mut l_y = 0.0;
     loop {
         let t0 = Instant::now();
-
         while let Some(state) = q.pop() {
             // control stick
             if state.l_state() != prev.l_state() {
@@ -236,8 +236,8 @@ fn main() -> uinput::Result<()> {
                     l_x = dx;
                     l_y = dy;
                 }
-                vjoy.position(&AbsolutePosition::X, jval(l_x))?;
-                vjoy.position(&AbsolutePosition::Y, jval(l_y))?;
+                vjoy.position(&AbsolutePosition::X, jval(l_x * state.l_mul))?;
+                vjoy.position(&AbsolutePosition::Y, jval(l_y * state.l_mul))?;
             }
 
             // c stick
@@ -306,11 +306,3 @@ fn update_joy<T: uinput::event::Position>(
         Ok(())
     }
 }
-
-// fn lerp_step(dur: Duration, transition_time_ns: f32) -> f32 {
-//     ((dur.as_nanos() as f32) / transition_time_ns).min(transition_time_ns)
-// }
-
-// fn lerp(v0: f32, v1: f32, step: f32) -> f32 {
-//     ((1.0 - step) * v0 + step * v1).clamp(-1.0, 1.0)
-// }

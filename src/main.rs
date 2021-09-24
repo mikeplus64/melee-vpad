@@ -19,6 +19,9 @@ const TRIGGER_MOD1: f32 = 129.0 / 256.0;
 const TRIGGER_MOD2: f32 = 92.0 / 256.0;
 const TRIGGER_MOD12: f32 = 64.0 / 256.0;
 
+const RATE_FAST: Duration = Duration::from_micros(500);
+const RATE_SLOW: Duration = Duration::from_millis(1);
+
 #[derive(Copy, Clone, Default, Debug)]
 struct JoyStateChange {
     l: bool,
@@ -67,6 +70,7 @@ struct JoyState {
     // modifiers
     mod1: bool,
     mod2: bool,
+    roller: bool,
 }
 
 impl JoyState {
@@ -104,6 +108,8 @@ impl JoyState {
                 // modifiers
                 Key::KEY_LEFTSHIFT => Some(&mut self.mod1),
                 Key::KEY_SLASH => Some(&mut self.mod2),
+                // Key::KEY_RIGHTSHIFT => Some(&mut self.roller),
+                // disable this as it's probably cheating
                 _ => None,
             } {
                 *r = event.value() != 0;
@@ -223,9 +229,33 @@ fn main() -> uinput::Result<()> {
     let mut prev = JoyState::default();
     let mut l_x = 0.0_f32;
     let mut l_y = 0.0_f32;
+    let mut rate_target = RATE_FAST;
+
+    // let mut roller_i = 0_usize;
+    // const ROLL_SEQUENCE: &[GP] = &[GP::North, GP::East, GP::South, GP::West];
+
     loop {
         let t0 = Instant::now();
+
+        // if prev.roller {
+        //     roller_i = (roller_i + 1) % 4;
+        //     let btn = ROLL_SEQUENCE[roller_i];
+        //     let x = 2.0 * (roller_i / 2) as f32 - 1.0;
+        //     vjoy.press(&btn)?;
+        //     vjoy.release(&btn)?;
+        //     vjoy.position(&AbsolutePosition::X, jval(x))?;
+        //     vjoy.position(&AbsolutePosition::Y, jval(1.0 - x))?;
+        // }
+
         while let Some(state) = q.pop() {
+            // if state.roller {
+            //     rate_target = RATE_SLOW;
+            // } else if prev.roller && !state.roller {
+            //     rate_target = RATE_FAST;
+            //     vjoy.position(&AbsolutePosition::X, jval(0.0))?;
+            //     vjoy.position(&AbsolutePosition::Y, jval(0.0))?;
+            // }
+
             // control stick
             if state.l_state() != prev.l_state() {
                 let dx = ((state.l_right as i8) as f32) - ((state.l_left as i8) as f32);
@@ -281,8 +311,8 @@ fn main() -> uinput::Result<()> {
         }
 
         let dt = t0.elapsed();
-        if dt < Duration::from_micros(500) {
-            thread::sleep(Duration::from_micros(500) - dt);
+        if dt < rate_target {
+            thread::sleep(rate_target - dt);
         }
     }
 }

@@ -237,8 +237,10 @@ fn main() -> uinput::Result<()> {
                     l_x = dx;
                     l_y = dy;
                 }
-                vjoy.position(&AbsolutePosition::X, jval(l_x * state.l_mul))?;
-                vjoy.position(&AbsolutePosition::Y, jval(l_y * state.l_mul))?;
+                l_x = (state.l_mul * l_x).clamp(-1.0, 1.0);
+                l_y = (state.l_mul * l_y).clamp(-1.0, 1.0);
+                vjoy.position(&AbsolutePosition::X, jval(l_x))?;
+                vjoy.position(&AbsolutePosition::Y, jval(l_y))?;
             }
 
             // c stick

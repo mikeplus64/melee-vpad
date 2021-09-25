@@ -3,23 +3,13 @@ import { useState, useEffect, useRef } from "react";
 const w = 400;
 const strokeWidth = 3 / 400;
 
-function animate(fps = 60, fn: (delta: number) => boolean) {
-  const interval = 1000.0 / fps;
-  const tolerance = 0.1;
-  let alive = true;
-  function start() {
-    let then = performance.now();
-    function animateLoop(now: DOMHighResTimeStamp) {
-      if (alive) requestAnimationFrame(animateLoop);
-      const delta = now - then;
-      if (delta >= interval - tolerance) {
-        then = now - (delta % interval);
-        alive = fn(delta);
-      }
+function animate(fn: () => boolean) {
+  function loop() {
+    if (fn()) {
+      requestAnimationFrame(loop);
     }
-    requestAnimationFrame(animateLoop);
   }
-  start();
+  loop();
 }
 
 function d(hist: { x: number; y: number }[]) {
@@ -43,21 +33,18 @@ const initialState = {
   hist: initialHist,
 };
 
-let globalx, globaly;
 function Dot() {
   const [, setRender] = useState(false);
   const state = useRef(initialState);
 
   useEffect(() => {
     let alive = true;
-    console.log("initialising dot");
     window.addEventListener("gamepadconnected", (ev) => {
-      console.log("gamepadconnected");
-      const gamepad = ev.gamepad;
-      animate(15, () => {
+      alive = true;
+      let gamepad = navigator.getGamepads()[ev.gamepad.index]!;
+      animate(() => {
+        gamepad = navigator.getGamepads()[ev.gamepad.index]!;
         const [x, y] = gamepad.axes;
-        globalx = x;
-        globaly = x;
         if (state.current.cursor.x !== x || state.current.cursor.y !== y) {
           state.current.cursor.x = x;
           state.current.cursor.y = y;
@@ -70,6 +57,11 @@ function Dot() {
         return alive;
       });
     });
+
+    window.addEventListener("gamepaddisconnected", () => {
+      alive = false;
+    });
+
     return () => {
       alive = false;
     };
@@ -91,7 +83,7 @@ function Dot() {
       />
       <path
         fill="none"
-        stroke="black"
+        stroke="white"
         strokeWidth={strokeWidth * 2}
         d={`M 0,0 L ${state.current.cursor.x},${state.current.cursor.y}`}
       />

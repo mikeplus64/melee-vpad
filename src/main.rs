@@ -16,29 +16,21 @@ const J_MOD2: f32 = 48.0 / 128.0;
 const J_MOD12: f32 = 32.0 / 128.0; // c stick only
 
 const TRIGGER_MOD1: f32 = 129.0 / 256.0;
-const TRIGGER_MOD2: f32 = 92.0 / 256.0;
-const TRIGGER_MOD12: f32 = 64.0 / 256.0;
 
-const RATE_FAST: Duration = Duration::from_micros(500);
-const RATE_SLOW: Duration = Duration::from_millis(1);
-
-#[derive(Copy, Clone, Default, Debug)]
-struct JoyStateChange {
-    l: bool,
-    r: bool,
-}
+const RATE_TARGET: Duration = Duration::from_micros(500);
 
 #[derive(Copy, Clone, Default, Debug)]
 struct JoyState {
     // control stick
-    l_up: bool,
-    l_down: bool,
-    l_left: bool,
-    l_right: bool,
-    l_active: bool,
-    l_y: f32,
-    l_x: f32,
-    l_mul: f32,
+    control_stick_up: bool,
+    control_stick_down: bool,
+    control_stick_left: bool,
+    control_stick_right: bool,
+    control_stick_active: bool,
+    control_stick_x: f32,
+    control_stick_y: f32,
+    control_stick_mul: f32,
+    control_stick_update: bool,
 
     // c stick
     c_up: bool,
@@ -50,6 +42,7 @@ struct JoyState {
 
     // triggers
     l_trigger: bool,
+    r_trigger: bool,
     l_trigger_depth: f32,
     c_trigger: bool,
 
@@ -70,35 +63,59 @@ struct JoyState {
     // modifiers
     mod1: bool,
     mod2: bool,
-    roller: bool,
+
+    // tag
+    tag: u32,
 }
 
 impl JoyState {
-    fn l_state(&self) -> (bool, bool, bool, bool, bool) {
-        (self.l_up, self.l_down, self.l_left, self.l_right, self.mod1)
-    }
-
     fn update_flags(&mut self, event: evdev::InputEvent) {
         use evdev::{InputEventKind, Key};
         if let InputEventKind::Key(k) = event.kind() {
-            // Control stick
             if let Some(r) = match k {
-                Key::KEY_W => Some(&mut self.l_up),
-                Key::KEY_S => Some(&mut self.l_down),
-                Key::KEY_A => Some(&mut self.l_left),
-                Key::KEY_D => Some(&mut self.l_right),
-                // C stick
-                Key::KEY_H => Some(&mut self.c_up),
-                Key::KEY_N => Some(&mut self.c_down),
-                Key::KEY_B => Some(&mut self.c_left),
-                Key::KEY_M => Some(&mut self.c_right),
-                // left trigger
-                Key::KEY_I => Some(&mut self.l_trigger),
-                // buttons
-                Key::KEY_J => Some(&mut self.a),
-                Key::KEY_K => Some(&mut self.b),
+                // wasd -> control stick
+                Key::KEY_W => Some(&mut self.control_stick_up),
+                Key::KEY_S => Some(&mut self.control_stick_down),
+                Key::KEY_A => Some(&mut self.control_stick_left),
+                Key::KEY_D => Some(&mut self.control_stick_right),
+                Key::KEY_LEFTSHIFT => Some(&mut self.mod1),
+                Key::KEY_ENTER => Some(&mut self.mod2),
+                _ => None,
+            } {
+                let cur = *r;
+                let next = event.value() != 0;
+                self.control_stick_update = self.control_stick_update || cur != next;
+                *r = event.value() != 0;
+            } else if let Some(r) = match k {
+                // hbnm -> C stick
+                // Key::KEY_H => Some(&mut self.c_up),
+                // Key::KEY_N => Some(&mut self.c_down),
+                // Key::KEY_B => Some(&mut self.c_left),
+                // Key::KEY_M => Some(&mut self.c_right),
+                // jkl -> ABZ buttons
+                // Key::KEY_J => Some(&mut self.a),
+                // Key::KEY_K => Some(&mut self.b),
+                // Key::KEY_L => Some(&mut self.z),
+                // io -> triggers
+                // Key::KEY_I => Some(&mut self.l_trigger),
+                // Key::KEY_O => Some(&mut self.r_trigger),
+
+                // hbnm -> C stick
+                Key::KEY_K => Some(&mut self.c_up),
+                Key::KEY_COMMA => Some(&mut self.c_down),
+                Key::KEY_M => Some(&mut self.c_left),
+                Key::KEY_DOT => Some(&mut self.c_right),
+
+                // p spc -> ABZX buttons
+                Key::KEY_L => Some(&mut self.a),
+                Key::KEY_SEMICOLON => Some(&mut self.b),
+                Key::KEY_APOSTROPHE => Some(&mut self.z),
                 Key::KEY_SPACE => Some(&mut self.x),
-                Key::KEY_L => Some(&mut self.z),
+
+                // -= -> triggers
+                Key::KEY_P => Some(&mut self.l_trigger),
+                Key::KEY_LEFTBRACE => Some(&mut self.r_trigger),
+
                 Key::KEY_T => Some(&mut self.start),
                 // dpad
                 Key::KEY_UP => Some(&mut self.dpad_up),
@@ -107,28 +124,61 @@ impl JoyState {
                 Key::KEY_RIGHT => Some(&mut self.dpad_right),
                 // modifiers
                 Key::KEY_LEFTSHIFT => Some(&mut self.mod1),
-                Key::KEY_SLASH => Some(&mut self.mod2),
-                // Key::KEY_RIGHTSHIFT => Some(&mut self.roller),
-                // disable this as it's probably cheating
                 _ => None,
             } {
                 *r = event.value() != 0;
             }
         }
+        self.tag += 1;
     }
 
     fn update_analog(&mut self) {
-        self.l_x = self.joyval(self.l_right, self.l_left);
-        self.l_y = self.joyval(self.l_down, self.l_up);
-        self.l_active = self.l_up || self.l_down || self.l_left || self.l_right;
-        self.l_mul = if self.mod2 { J_MOD2 } else { 1.0 };
-        self.c_x = self.joyval(self.c_right, self.c_left);
-        self.c_y = self.joyval(self.c_down, self.c_up);
+        if self.control_stick_update {
+            let active0 = self.control_stick_active;
+
+            self.control_stick_mul = if self.mod2 { J_MOD2 } else { 1.0 };
+            self.control_stick_active = self.control_stick_up
+                || self.control_stick_down
+                || self.control_stick_left
+                || self.control_stick_right;
+
+            let vx = (self.control_stick_right as i8) - (self.control_stick_left as i8);
+            let vy = (self.control_stick_down as i8) - (self.control_stick_up as i8);
+            let mut x = vx as f32;
+            let mut y = vy as f32;
+            if self.mod1 && self.control_stick_active {
+                let x0 = self.control_stick_x;
+                let y0 = self.control_stick_y;
+                if !active0 {
+                    if vx.abs() == 1 && vy.abs() == 1 {
+                        y = 0.31 * vy as f32;
+                    }
+                } else {
+                    if !(y0.abs() < 0.01) {
+                        x = x0 + 0.3875 * vx as f32;
+                    }
+                    if !(x0.abs() < 0.01) {
+                        y = y0 + 0.31 * vy as f32;
+                    }
+                }
+                if !self.mod2 && x.abs() < 0.99 && y.abs() < 0.99 {
+                    if x.abs() > y.abs() {
+                        x = vx as f32;
+                    } else {
+                        y = vy as f32;
+                    }
+                }
+            }
+            self.control_stick_x = (x * self.control_stick_mul).clamp(-1.0, 1.0);
+            self.control_stick_y = (y * self.control_stick_mul).clamp(-1.0, 1.0);
+        }
+        self.c_x = self.c_joyval(self.c_right, self.c_left);
+        self.c_y = self.c_joyval(self.c_down, self.c_up);
         self.l_trigger_depth = self.triggerval();
     }
 
     // only used for C stick
-    fn joy_modval(&self) -> f32 {
+    fn c_joy_modval(&self) -> f32 {
         if self.mod1 && self.mod2 {
             J_MOD12
         } else if self.mod1 {
@@ -140,26 +190,23 @@ impl JoyState {
         }
     }
 
-    fn joyval(&self, high: bool, low: bool) -> f32 {
+    fn c_joyval(&self, high: bool, low: bool) -> f32 {
         if high && low {
             0.0
         } else if high {
-            1.0 * self.joy_modval()
+            1.0 * self.c_joy_modval()
         } else if low {
-            -1.0 * self.joy_modval()
+            -1.0 * self.c_joy_modval()
         } else {
             0.0
         }
     }
 
     fn triggerval(&self) -> f32 {
+        // light shield and full shield and that's it
         if self.l_trigger {
-            if self.mod1 && self.mod2 {
-                TRIGGER_MOD12
-            } else if self.mod1 {
+            if self.mod1 {
                 TRIGGER_MOD1
-            } else if self.mod2 {
-                TRIGGER_MOD2
             } else {
                 1.0
             }
@@ -215,6 +262,7 @@ fn main() -> uinput::Result<()> {
         let mut state = JoyState::default();
         loop {
             let mut any_events = false;
+            state.control_stick_update = false;
             for ev in kbd.fetch_events().unwrap() {
                 any_events = true;
                 state.update_flags(ev);
@@ -227,51 +275,23 @@ fn main() -> uinput::Result<()> {
     });
 
     let mut prev = JoyState::default();
-    let mut l_x = 0.0_f32;
-    let mut l_y = 0.0_f32;
-    let mut rate_target = RATE_FAST;
-
-    // let mut roller_i = 0_usize;
-    // const ROLL_SEQUENCE: &[GP] = &[GP::North, GP::East, GP::South, GP::West];
-
     loop {
         let t0 = Instant::now();
 
-        // if prev.roller {
-        //     roller_i = (roller_i + 1) % 4;
-        //     let btn = ROLL_SEQUENCE[roller_i];
-        //     let x = 2.0 * (roller_i / 2) as f32 - 1.0;
-        //     vjoy.press(&btn)?;
-        //     vjoy.release(&btn)?;
-        //     vjoy.position(&AbsolutePosition::X, jval(x))?;
-        //     vjoy.position(&AbsolutePosition::Y, jval(1.0 - x))?;
-        // }
-
         while let Some(state) = q.pop() {
-            // if state.roller {
-            //     rate_target = RATE_SLOW;
-            // } else if prev.roller && !state.roller {
-            //     rate_target = RATE_FAST;
-            //     vjoy.position(&AbsolutePosition::X, jval(0.0))?;
-            //     vjoy.position(&AbsolutePosition::Y, jval(0.0))?;
-            // }
-
             // control stick
-            if state.l_state() != prev.l_state() {
-                let dx = ((state.l_right as i8) as f32) - ((state.l_left as i8) as f32);
-                let dy = ((state.l_down as i8) as f32) - ((state.l_up as i8) as f32);
-                if state.mod1 {
-                    l_x = if dy != 0.0 { 0.4 * dx + l_x } else { dx };
-                    l_y = if dx != 0.0 { 0.4 * dy + l_y } else { dy };
-                } else {
-                    l_x = dx;
-                    l_y = dy;
-                }
-                l_x = (state.l_mul * l_x).clamp(-1.0, 1.0);
-                l_y = (state.l_mul * l_y).clamp(-1.0, 1.0);
-                vjoy.position(&AbsolutePosition::X, jval(l_x))?;
-                vjoy.position(&AbsolutePosition::Y, jval(l_y))?;
-            }
+            update_joy(
+                &mut vjoy,
+                &AbsolutePosition::X,
+                prev.control_stick_x,
+                state.control_stick_x,
+            )?;
+            update_joy(
+                &mut vjoy,
+                &AbsolutePosition::Y,
+                prev.control_stick_y,
+                state.control_stick_y,
+            )?;
 
             // c stick
             update_joy(&mut vjoy, &AbsolutePosition::RX, prev.c_x, state.c_x)?;
@@ -297,6 +317,7 @@ fn main() -> uinput::Result<()> {
                 (prev.dpad_down, state.dpad_down, C::DPad(DPad::Down)),
                 (prev.dpad_left, state.dpad_left, C::DPad(DPad::Left)),
                 (prev.dpad_right, state.dpad_right, C::DPad(DPad::Right)),
+                (prev.r_trigger, state.r_trigger, C::GamePad(GP::TR)),
             ] {
                 if *prev && !*cur {
                     vjoy.release(ev)?;
@@ -311,8 +332,8 @@ fn main() -> uinput::Result<()> {
         }
 
         let dt = t0.elapsed();
-        if dt < rate_target {
-            thread::sleep(rate_target - dt);
+        if dt < RATE_TARGET {
+            thread::sleep(RATE_TARGET - dt);
         }
     }
 }

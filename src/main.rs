@@ -5,7 +5,7 @@ use evdev::Key;
 use log;
 use modular_bitfield::{
     bitfield,
-    specifiers::{B3, B6},
+    specifiers::{B4, B6},
 };
 use std::sync::Arc;
 use std::thread;
@@ -35,10 +35,10 @@ const CONTROL_STICK: DPadBinds = DPadBinds {
 };
 
 const C_STICK: DPadBinds = DPadBinds {
-    up: Key::KEY_K,
-    down: Key::KEY_COMMA,
-    left: Key::KEY_M,
-    right: Key::KEY_DOT,
+    up: Key::KEY_H,
+    down: Key::KEY_N,
+    left: Key::KEY_B,
+    right: Key::KEY_M,
 };
 
 const DPAD: DPadBinds = DPadBinds {
@@ -48,17 +48,17 @@ const DPAD: DPadBinds = DPadBinds {
     right: Key::KEY_RIGHT,
 };
 
-const BTN_A: Key = Key::KEY_L;
-const BTN_B: Key = Key::KEY_SEMICOLON;
-const BTN_Z: Key = Key::KEY_APOSTROPHE;
+const BTN_A: Key = Key::KEY_J;
+const BTN_B: Key = Key::KEY_K;
+const BTN_Z: Key = Key::KEY_L;
 const BTN_X: Key = Key::KEY_SPACE;
 const BTN_Y: Key = Key::KEY_LEFTALT; // I don't really use this at all
 const BTN_START: Key = Key::KEY_T;
-const BTN_L: Key = Key::KEY_P;
-const BTN_R: Key = Key::KEY_LEFTBRACE;
+const BTN_L: Key = Key::KEY_I;
+const BTN_R: Key = Key::KEY_O;
 // Modifiers
 const BTN_MOD1: Key = Key::KEY_LEFTSHIFT;
-const BTN_MOD2: Key = Key::KEY_ENTER;
+const BTN_MOD2: Key = Key::KEY_SLASH;
 // =================
 
 const J_MOD1_INCR: f32 = 0.3875;

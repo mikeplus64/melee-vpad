@@ -92,42 +92,38 @@ impl DPadState {
     pub fn update(&mut self, binds: DPadBinds, key: Key, value: bool) -> bool {
         if key == binds.up {
             self.set_up(value);
+            self.set_up_masked(value);
             if value {
                 self.set_down(false);
-                self.set_down_masked(true);
             } else {
                 self.set_down(self.down_masked());
-                self.set_down_masked(false);
             }
             true
         } else if key == binds.down {
             self.set_down(value);
+            self.set_down_masked(value);
             if value {
                 self.set_up(false);
-                self.set_up_masked(true);
             } else {
                 self.set_up(self.up_masked());
-                self.set_up_masked(false);
             }
             true
         } else if key == binds.left {
             self.set_left(value);
+            self.set_left_masked(value);
             if value {
                 self.set_right(false);
-                self.set_right_masked(true);
             } else {
                 self.set_right(self.right_masked());
-                self.set_right_masked(false);
             }
             true
         } else if key == binds.right {
             self.set_right(value);
+            self.set_right_masked(value);
             if value {
                 self.set_left(false);
-                self.set_left_masked(true);
             } else {
                 self.set_left(self.left_masked());
-                self.set_left_masked(false);
             }
             true
         } else {

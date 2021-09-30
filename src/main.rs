@@ -75,9 +75,10 @@ struct DPadState {
     down: bool,
     left: bool,
     right: bool,
-    updated: bool,
-    #[skip]
-    __: B3,
+    up_masked: bool,
+    down_masked: bool,
+    left_masked: bool,
+    right_masked: bool,
 }
 
 impl DPadState {
@@ -87,24 +88,44 @@ impl DPadState {
 
     pub fn update(&mut self, binds: DPadBinds, key: Key, value: bool) -> bool {
         if key == binds.up {
-            let prev = self.up();
             self.set_up(value);
-            self.set_updated(prev != value);
+            if value {
+                self.set_down(false);
+                self.set_down_masked(true);
+            } else {
+                self.set_down(self.down_masked());
+                self.set_down_masked(false);
+            }
             true
         } else if key == binds.down {
-            let prev = self.down();
             self.set_down(value);
-            self.set_updated(prev != value);
+            if value {
+                self.set_up(false);
+                self.set_up_masked(true);
+            } else {
+                self.set_up(self.up_masked());
+                self.set_up_masked(false);
+            }
             true
         } else if key == binds.left {
-            let prev = self.left();
             self.set_left(value);
-            self.set_updated(prev != value);
+            if value {
+                self.set_right(false);
+                self.set_right_masked(true);
+            } else {
+                self.set_right(self.right_masked());
+                self.set_right_masked(false);
+            }
             true
         } else if key == binds.right {
-            let prev = self.right();
             self.set_right(value);
-            self.set_updated(prev != value);
+            if value {
+                self.set_left(false);
+                self.set_left_masked(true);
+            } else {
+                self.set_left(self.left_masked());
+                self.set_left_masked(false);
+            }
             true
         } else {
             false

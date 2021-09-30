@@ -68,6 +68,9 @@ const TRIGGER_MOD1: f32 = 129.0 / 256.0;
 
 const RATE_TARGET: Duration = Duration::from_micros(250);
 
+const JOY_UP_RANGE: i32 = 127;
+const JOY_DOWN_RANGE: i32 = -JOY_UP_RANGE;
+
 #[bitfield]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 struct DPadState {
@@ -295,20 +298,20 @@ fn main() -> uinput::Result<()> {
         .event(DPad::Left)?
         .event(DPad::Right)?
         .event(AbsolutePosition::X)?
-        .min(-127)
-        .max(128)
+        .min(JOY_DOWN_RANGE)
+        .max(JOY_UP_RANGE)
         .event(AbsolutePosition::Y)?
-        .min(-127)
-        .max(128)
+        .min(JOY_DOWN_RANGE)
+        .max(JOY_UP_RANGE)
         .event(AbsolutePosition::Z)?
         .min(0)
         .max(255)
         .event(AbsolutePosition::RX)?
-        .min(-127)
-        .max(128)
+        .min(JOY_DOWN_RANGE)
+        .max(JOY_UP_RANGE)
         .event(AbsolutePosition::RY)?
-        .min(-127)
-        .max(128)
+        .min(JOY_DOWN_RANGE)
+        .max(JOY_UP_RANGE)
         .create()?;
     log::info!("Created virtual gamepad device");
 
@@ -426,7 +429,8 @@ fn get_keyboard() -> evdev::Device {
 }
 
 fn jval(value: f32) -> i32 {
-    (value * 127.0) as i32
+    const JOY_UP_RANGE_F32: f32 = JOY_UP_RANGE as f32;
+    (value * JOY_UP_RANGE_F32) as i32
 }
 
 fn update_btn<T: uinput::event::Press + uinput::event::Release>(

@@ -179,9 +179,6 @@ struct JoyState {
 
 impl JoyState {
     fn update_flags(&mut self, event: evdev::InputEvent) {
-        self.control_stick.set_updated(false);
-        self.c_stick.set_updated(false);
-        self.dpad.set_updated(false);
         if let evdev::InputEventKind::Key(k) = event.kind() {
             let value = event.value();
             if value > 1 {
@@ -371,7 +368,7 @@ fn main() -> uinput::Result<()> {
             }
 
             // buttons
-            if prev.btn != state.btn {
+            if prev.btn.into_bytes() != state.btn.into_bytes() {
                 update_btn(&mut vjoy, prev.btn.a(), state.btn.a(), &GP::East)?;
                 update_btn(&mut vjoy, prev.btn.b(), state.btn.b(), &GP::South)?;
                 update_btn(&mut vjoy, prev.btn.x(), state.btn.x(), &GP::North)?;
@@ -395,11 +392,16 @@ fn main() -> uinput::Result<()> {
             )?;
 
             // dpad
-            if state.dpad.updated() {
+            if prev.dpad.into_bytes() != state.dpad.into_bytes() {
                 update_btn(&mut vjoy, prev.dpad.up(), state.dpad.up(), &DPad::Up)?;
-                update_btn(&mut vjoy, prev.dpad.down(), state.dpad.down(), &DPad::Up)?;
-                update_btn(&mut vjoy, prev.dpad.left(), state.dpad.left(), &DPad::Up)?;
-                update_btn(&mut vjoy, prev.dpad.right(), state.dpad.right(), &DPad::Up)?;
+                update_btn(&mut vjoy, prev.dpad.down(), state.dpad.down(), &DPad::Down)?;
+                update_btn(&mut vjoy, prev.dpad.left(), state.dpad.left(), &DPad::Left)?;
+                update_btn(
+                    &mut vjoy,
+                    prev.dpad.right(),
+                    state.dpad.right(),
+                    &DPad::Right,
+                )?;
             }
 
             vjoy.synchronize()?;

@@ -20,34 +20,31 @@ const KEYBOARD_NAME: &str = "CATEX TECH. 84EC-XRGB";
 // Key Bindings
 // =================
 // GCC
-struct DPadBinds {
-    up: Key,
-    down: Key,
-    left: Key,
-    right: Key,
-}
 
-const CONTROL_STICK: DPadBinds = DPadBinds {
+const CONTROL_STICK: DPad8Binds = DPad8Binds {
     up: Key::KEY_W,
+    upleft: Key::KEY_Q,
+    upright: Key::KEY_E,
     down: Key::KEY_S,
+    downleft: Key::KEY_Z,
+    downright: Key::KEY_C,
     left: Key::KEY_A,
     right: Key::KEY_D,
 };
-
 const C_STICK: DPadBinds = DPadBinds {
     up: Key::KEY_H,
     down: Key::KEY_N,
     left: Key::KEY_B,
     right: Key::KEY_M,
 };
-
 const DPAD: DPadBinds = DPadBinds {
     up: Key::KEY_UP,
     down: Key::KEY_DOWN,
     left: Key::KEY_LEFT,
     right: Key::KEY_RIGHT,
 };
-
+// =================
+// Digital binds
 const BTN_A: Key = Key::KEY_J;
 const BTN_B: Key = Key::KEY_K;
 const BTN_Z: Key = Key::KEY_L;
@@ -60,16 +57,80 @@ const BTN_R: Key = Key::KEY_O;
 const BTN_MOD1: Key = Key::KEY_LEFTSHIFT;
 const BTN_MOD2: Key = Key::KEY_SLASH;
 // =================
-
+// Special parameters
 const J_MOD1_INCR: f32 = 0.3875;
 const J_MOD1_AROUND_Y: f32 = 0.31;
 const J_MOD2: f32 = 48.0 / 128.0;
 const TRIGGER_MOD1: f32 = 129.0 / 256.0;
+const JOY_UP_RANGE: i32 = 127;
+const JOY_DOWN_RANGE: i32 = -JOY_UP_RANGE;
+// =================
 
 const RATE_TARGET: Duration = Duration::from_micros(250);
 
-const JOY_UP_RANGE: i32 = 127;
-const JOY_DOWN_RANGE: i32 = -JOY_UP_RANGE;
+struct DPadBinds {
+    up: Key,
+    down: Key,
+    left: Key,
+    right: Key,
+}
+
+struct DPad8Binds {
+    upleft: Key,
+    up: Key,
+    upright: Key,
+    downleft: Key,
+    down: Key,
+    downright: Key,
+    left: Key,
+    right: Key,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Dir8 {
+    NW,
+    N,
+    NE,
+    W,
+    E,
+    SW,
+    S,
+    SE,
+}
+
+trait DirectionalBinds {
+    fn dir(&self, key: Key) -> Option<Dir8>;
+}
+
+impl DirectionalBinds for DPad8Binds {
+    #[inline(always)]
+    fn dir(&self, k: Key) -> Option<Dir8> {
+        match k {
+            _ if k == self.up => Some(Dir8::N),
+            _ if k == self.upleft => Some(Dir8::NW),
+            _ if k == self.upright => Some(Dir8::NE),
+            _ if k == self.down => Some(Dir8::S),
+            _ if k == self.downleft => Some(Dir8::SW),
+            _ if k == self.downright => Some(Dir8::SE),
+            _ if k == self.left => Some(Dir8::W),
+            _ if k == self.right => Some(Dir8::E),
+            _ => None,
+        }
+    }
+}
+
+impl DirectionalBinds for DPadBinds {
+    #[inline(always)]
+    fn dir(&self, k: Key) -> Option<Dir8> {
+        match k {
+            _ if k == self.up => Some(Dir8::N),
+            _ if k == self.down => Some(Dir8::S),
+            _ if k == self.left => Some(Dir8::W),
+            _ if k == self.right => Some(Dir8::E),
+            _ => None,
+        }
+    }
+}
 
 #[bitfield]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
@@ -85,49 +146,109 @@ struct DPadState {
 }
 
 impl DPadState {
+    #[inline(always)]
     pub fn is_active(&self) -> bool {
         self.left() || self.right() || self.up() || self.down()
     }
 
-    pub fn update(&mut self, binds: DPadBinds, key: Key, value: bool) -> bool {
-        if key == binds.up {
-            self.set_up(value);
-            self.set_up_masked(value);
-            if value {
-                self.set_down(false);
-            } else {
-                self.set_down(self.down_masked());
-            }
-            true
-        } else if key == binds.down {
-            self.set_down(value);
-            self.set_down_masked(value);
-            if value {
-                self.set_up(false);
-            } else {
-                self.set_up(self.up_masked());
-            }
-            true
-        } else if key == binds.left {
-            self.set_left(value);
-            self.set_left_masked(value);
-            if value {
-                self.set_right(false);
-            } else {
-                self.set_right(self.right_masked());
-            }
-            true
-        } else if key == binds.right {
-            self.set_right(value);
-            self.set_right_masked(value);
-            if value {
-                self.set_left(false);
-            } else {
-                self.set_left(self.left_masked());
-            }
-            true
+    #[inline]
+    fn on_up(&mut self, value: bool) {
+        self.set_up(value);
+        self.set_up_masked(value);
+        if value {
+            self.set_down(false);
         } else {
-            false
+            self.set_down(self.down_masked());
+        }
+    }
+
+    #[inline]
+    fn on_down(&mut self, value: bool) {
+        self.set_down(value);
+        self.set_down_masked(value);
+        if value {
+            self.set_up(false);
+        } else {
+            self.set_up(self.up_masked());
+        }
+    }
+
+    #[inline]
+    fn on_left(&mut self, value: bool) {
+        self.set_left(value);
+        self.set_left_masked(value);
+        if value {
+            self.set_right(false);
+        } else {
+            self.set_right(self.right_masked());
+        }
+    }
+
+    #[inline]
+    fn on_right(&mut self, value: bool) {
+        self.set_right(value);
+        self.set_right_masked(value);
+        if value {
+            self.set_left(false);
+        } else {
+            self.set_left(self.left_masked());
+        }
+    }
+
+    #[inline(always)]
+    pub fn update<B: DirectionalBinds>(&mut self, binds: B, key: Key, value: bool) -> bool {
+        use Dir8::*;
+        let dir = if let Some(dir) = binds.dir(key) {
+            dir
+        } else {
+            return false;
+        };
+        match dir {
+            N => {
+                self.on_up(value);
+                true
+            }
+
+            S => {
+                self.on_down(value);
+                true
+            }
+
+            W => {
+                self.on_left(value);
+                true
+            }
+
+            E => {
+                self.on_right(value);
+                true
+            }
+
+            NW => {
+                self.on_up(value);
+                self.on_left(value);
+                true
+            }
+
+            SW => {
+                self.on_down(value);
+                self.on_left(value);
+                true
+            }
+
+            NE => {
+                self.on_up(value);
+                self.on_right(value);
+                true
+            }
+
+            SE => {
+                self.on_down(value);
+                self.on_right(value);
+                true
+            }
+
+            _ => false,
         }
     }
 }
@@ -424,11 +545,13 @@ fn get_keyboard() -> evdev::Device {
     panic!("Cannot get keyboard device")
 }
 
+#[inline(always)]
 fn jval(value: f32) -> i32 {
     const JOY_UP_RANGE_F32: f32 = JOY_UP_RANGE as f32;
     (value * JOY_UP_RANGE_F32) as i32
 }
 
+#[inline(always)]
 fn update_btn<T: uinput::event::Press + uinput::event::Release>(
     device: &mut uinput::Device,
     prev: bool,
@@ -444,6 +567,7 @@ fn update_btn<T: uinput::event::Press + uinput::event::Release>(
     }
 }
 
+#[inline(always)]
 fn update_joy<T: uinput::event::Position>(
     device: &mut uinput::Device,
     event: &T,

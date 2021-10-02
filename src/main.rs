@@ -34,6 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let settings = Settings::new()?;
 
     let q = Arc::new(SegQueue::<JoyState>::new());
+
     {
         let q = q.clone();
         let settings = settings.clone();
@@ -47,24 +48,20 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut state = JoyState::default();
             let mut prev = state;
             loop {
-                let mut last_tv = None;
                 let mut changes = false;
-                while let Ok((_status, ev)) = kbd.next_event(ReadFlag::NORMAL | ReadFlag::BLOCKING)
-                {
+                while let Ok((_status, ev)) = kbd.next_event(ReadFlag::BLOCKING) {
                     if ev.is_code(&EventCode::EV_SYN(EV_SYN::SYN_REPORT)) {
-                        last_tv = Some(ev.time);
-                        break;
+                        if changes {
+                            state.updated = UpdatedTimeVal(ev.time);
+                            state.update_analog(&settings, &prev);
+                            state.sanity();
+                            q.push(state);
+                            prev = state;
+                            changes = false;
+                        }
                     }
-                    changes = changes || state.update_flags(&binds, ev);
+                    changes = state.update_flags(&binds, ev) || changes;
                 }
-                if changes {
-                    if let Some(tv) = last_tv {
-                        state.updated = UpdatedTimeVal(tv);
-                        state.update_analog(&settings, &prev);
-                        q.push(state);
-                    }
-                }
-                prev = state;
             }
         });
     }

@@ -39,14 +39,14 @@ pub struct JoyState {
 #[bitfield]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct DPadState {
+    pub up_held: bool,
+    pub down_held: bool,
+    pub left_held: bool,
+    pub right_held: bool,
     pub up: bool,
     pub down: bool,
     pub left: bool,
     pub right: bool,
-    pub up_masked: bool,
-    pub down_masked: bool,
-    pub left_masked: bool,
-    pub right_masked: bool,
 }
 
 #[bitfield]
@@ -74,93 +74,77 @@ impl DPadState {
         match dir {
             N => {
                 self.on_up(value);
-                true
             }
-
             S => {
                 self.on_down(value);
-                true
             }
-
             W => {
                 self.on_left(value);
-                true
             }
-
             E => {
                 self.on_right(value);
-                true
             }
-
             NW => {
                 self.on_up(value);
                 self.on_left(value);
-                true
             }
-
             SW => {
                 self.on_down(value);
                 self.on_left(value);
-                true
             }
-
             NE => {
                 self.on_up(value);
                 self.on_right(value);
-                true
             }
-
             SE => {
                 self.on_down(value);
                 self.on_right(value);
-                true
             }
-
-            _ => false,
-        }
+        };
+        true
     }
 
     #[inline]
     fn on_up(&mut self, value: bool) {
         self.set_up(value);
-        self.set_up_masked(value);
+        self.set_up_held(value);
         if value {
             self.set_down(false);
         } else {
-            self.set_down(self.down_masked());
+            self.set_down(self.down_held());
         }
     }
 
     #[inline]
     fn on_down(&mut self, value: bool) {
         self.set_down(value);
-        self.set_down_masked(value);
+        self.set_down_held(value);
         if value {
             self.set_up(false);
         } else {
-            self.set_up(self.up_masked());
+            self.set_up(self.up_held());
         }
     }
 
     #[inline]
     fn on_left(&mut self, value: bool) {
         self.set_left(value);
-        self.set_left_masked(value);
+        self.set_left_held(value);
         if value {
             self.set_right(false);
         } else {
-            self.set_right(self.right_masked());
+            self.set_right(self.right_held());
         }
     }
 
     #[inline]
     fn on_right(&mut self, value: bool) {
         self.set_right(value);
-        self.set_right_masked(value);
+        self.set_right_held(value);
         if value {
             self.set_left(false);
         } else {
-            self.set_left(self.left_masked());
+            self.set_left(self.left_held());
         }
     }
 }
@@ -276,5 +260,13 @@ impl JoyState {
         } else {
             0.0
         };
+    }
+
+    pub fn sanity(&self) {
+        let control_stick_is_active = self.control_stick.is_active();
+        if !control_stick_is_active {
+            let control_stick_xy = (self.control_stick_x, self.control_stick_y);
+            assert_eq!(control_stick_xy, (0.0, 0.0));
+        }
     }
 }

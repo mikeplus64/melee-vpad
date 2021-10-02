@@ -34,33 +34,40 @@ fn main() -> Result<(), Box<dyn Error>> {
     let settings = Settings::new()?;
 
     let q = Arc::new(SegQueue::<JoyState>::new());
-    let q1 = q.clone();
-    let settings1 = settings.clone();
-    thread::spawn(move || {
-        let file = File::open(settings1.keyboard_path).expect("Could not open keyboard device");
-        let kbd = Device::new_from_file(file).expect("Could not create keyboard device");
-        let mut state = JoyState::default();
-        let mut prev = state;
-        loop {
-            let mut last_tv = None;
-            let mut changes = false;
-            while let Ok((_status, ev)) = kbd.next_event(ReadFlag::NORMAL | ReadFlag::BLOCKING) {
-                if ev.is_code(&EventCode::EV_SYN(EV_SYN::SYN_REPORT)) {
-                    last_tv = Some(ev.time);
-                    break;
+    {
+        let q = q.clone();
+        let settings = settings.clone();
+        thread::spawn(move || {
+            let binds = settings.binds.clone();
+            let kbd = {
+                let path = settings.keyboard_path.clone();
+                let file = File::open(path).expect("Could not open keyboard device");
+                Device::new_from_file(file).expect("Could not create keyboard device")
+            };
+            let mut state = JoyState::default();
+            let mut prev = state;
+            loop {
+                let mut last_tv = None;
+                let mut changes = false;
+                while let Ok((_status, ev)) = kbd.next_event(ReadFlag::NORMAL | ReadFlag::BLOCKING)
+                {
+                    if ev.is_code(&EventCode::EV_SYN(EV_SYN::SYN_REPORT)) {
+                        last_tv = Some(ev.time);
+                        break;
+                    }
+                    changes = changes || state.update_flags(&binds, ev);
                 }
-                changes = changes || state.update_flags(&settings1.binds, ev);
-            }
-            if changes {
-                if let Some(tv) = last_tv {
-                    state.updated = UpdatedTimeVal(tv);
-                    state.update_analog(&prev);
-                    q1.push(state);
+                if changes {
+                    if let Some(tv) = last_tv {
+                        state.updated = UpdatedTimeVal(tv);
+                        state.update_analog(&settings, &prev);
+                        q.push(state);
+                    }
                 }
+                prev = state;
             }
-            prev = state;
-        }
-    });
+        });
+    }
 
     let mut vjoy = VJoy::new(&settings)?;
     let mut prev = JoyState::default();
@@ -112,8 +119,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         let dt = t0.elapsed();
-        if dt < RATE_TARGET {
-            thread::sleep(RATE_TARGET - dt);
+        if dt < settings.poll_rate {
+            thread::sleep(settings.poll_rate - dt);
         }
     }
 }

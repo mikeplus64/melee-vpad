@@ -213,11 +213,11 @@ impl JoyState {
         false
     }
 
-    pub fn update_analog(&mut self, prev: &Self) {
+    pub fn update_analog(&mut self, cfg: &Settings, prev: &Self) {
         let mod1 = self.m.mod1();
         let mod2 = self.m.mod2();
         let mod_changed = self.m != prev.m;
-        let j_mul = if mod2 { J_MOD2 } else { 1.0 };
+        let j_mul = if mod2 { cfg.mod2_mul } else { 1.0 };
 
         // update control stick
         if self.control_stick != prev.control_stick || mod_changed {
@@ -232,14 +232,14 @@ impl JoyState {
                     let (vhoriz, vvert) = (vx.abs() == 1, vy.abs() == 1);
                     if !active0 {
                         if vhoriz && vvert {
-                            y *= J_MOD1_AROUND_Y;
+                            y *= cfg.mod1_around_y;
                         }
                     } else {
                         if y0.abs() > 0.01 {
-                            x = x0 + J_MOD1_INCR * vx as f32;
+                            x = x0 + cfg.mod1_incr * vx as f32;
                         }
                         if x0.abs() > 0.01 {
-                            y = y0 + J_MOD1_AROUND_Y * vy as f32;
+                            y = y0 + cfg.mod1_around_y * vy as f32;
                         }
                     }
                 }
@@ -269,7 +269,7 @@ impl JoyState {
         // update L trigger (R trigger is just digital here)
         self.l_trigger = if self.btn.l() {
             if mod1 {
-                TRIGGER_MOD1
+                cfg.mod1_trigger_mul
             } else {
                 1.0
             }

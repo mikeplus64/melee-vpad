@@ -31,13 +31,14 @@ impl VJoy {
         inp.enable(&EventType::EV_SYN)?;
 
         inp.enable(&EventType::EV_KEY)?;
-        inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_TR))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_EAST))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_WEST))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_NORTH))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_SOUTH))?;
-        inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_TL))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_Z))?;
+        inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_TL))?;
+        inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_TR))?;
+        inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_START))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_DPAD_UP))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_DPAD_DOWN))?;
         inp.enable(&EventCode::EV_KEY(EV_KEY::BTN_DPAD_LEFT))?;

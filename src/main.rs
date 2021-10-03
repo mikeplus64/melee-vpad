@@ -2,32 +2,22 @@
 use crossbeam::queue::SegQueue;
 use env_logger;
 use evdev_rs::{
-    enums::{EventCode, EventType, InputProp, EV_ABS, EV_KEY, EV_SYN},
-    AbsInfo, Device, DeviceWrapper, ReadFlag, UInputDevice, UninitDevice,
-};
-use log;
-use modular_bitfield::{
-    bitfield,
-    specifiers::{B4, B6},
+    enums::{EventCode, EV_ABS, EV_KEY, EV_SYN},
+    Device, ReadFlag,
 };
 use std::error::Error;
 use std::fs::File;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
-
-// use uinput;
-// use uinput::event::absolute::Position as AbsolutePosition;
-// use uinput::event::controller::{DPad, GamePad as GP};
+use std::time::Instant;
 
 mod config;
+mod dir8;
 mod state;
 mod vjoy;
 use crate::config::*;
 use crate::state::*;
 use crate::vjoy::*;
-
-// use crate::config::{Config, DPad8Binds, DPadBinds, Dir8, DirectionalBinds};
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
@@ -54,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         if changes {
                             state.updated = UpdatedTimeVal(ev.time);
                             state.update_analog(&settings, &prev);
-                            state.sanity();
+                            // state.sanity();
                             q.push(state);
                             prev = state;
                             changes = false;

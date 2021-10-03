@@ -1,23 +1,10 @@
 use crate::config::{Settings, JOY_DOWN_RANGE, JOY_UP_RANGE};
-use crossbeam::queue::SegQueue;
-use env_logger;
 use evdev_rs::{
-    enums::{EventCode, EventType, InputProp, EV_ABS, EV_KEY, EV_SYN},
-    AbsInfo, Device, DeviceWrapper, InputEvent, ReadFlag, TimeVal, UInputDevice, UninitDevice,
+    enums::{EventCode, EventType, EV_ABS, EV_KEY, EV_SYN},
+    AbsInfo, DeviceWrapper, InputEvent, TimeVal, UInputDevice, UninitDevice,
 };
-use libc::{gettimeofday, timeval};
 use log;
-use modular_bitfield::{
-    bitfield,
-    specifiers::{B4, B6},
-};
-use std::error::Error;
-use std::fs::File;
 use std::io::Result;
-use std::ptr;
-use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub struct VJoy {
     pub device: UInputDevice,

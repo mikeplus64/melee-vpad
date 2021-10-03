@@ -1,19 +1,7 @@
-use crate::config::*;
+use crate::config::{Binds, Settings};
+use crate::dir8::{Dir8, ToDir8};
 use evdev_rs::{enums::EV_KEY, InputEvent, TimeVal};
 use modular_bitfield::{bitfield, specifiers::B6};
-
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
-pub struct UpdatedTimeVal(pub TimeVal);
-
-impl Default for UpdatedTimeVal {
-    fn default() -> UpdatedTimeVal {
-        UpdatedTimeVal(TimeVal {
-            tv_sec: 0,
-            tv_usec: 0,
-        })
-    }
-}
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct JoyState {
@@ -34,6 +22,19 @@ pub struct JoyState {
     // modifiers
     pub m: Modifiers,
     pub updated: UpdatedTimeVal,
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug)]
+pub struct UpdatedTimeVal(pub TimeVal);
+
+impl Default for UpdatedTimeVal {
+    fn default() -> UpdatedTimeVal {
+        UpdatedTimeVal(TimeVal {
+            tv_sec: 0,
+            tv_usec: 0,
+        })
+    }
 }
 
 #[bitfield]
@@ -64,7 +65,7 @@ impl DPadState {
         self.left() || self.right() || self.up() || self.down()
     }
 
-    pub fn update<B: DirectionalBinds>(&mut self, binds: &B, key: EV_KEY, value: bool) -> bool {
+    pub fn update<B: ToDir8>(&mut self, binds: &B, key: EV_KEY, value: bool) -> bool {
         use Dir8::*;
         let dir = if let Some(dir) = binds.dir(key) {
             dir

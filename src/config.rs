@@ -1,4 +1,5 @@
 use evdev_rs::enums::EV_KEY;
+use fixed::types::I1F7;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
@@ -12,10 +13,10 @@ pub const JOY_DOWN_RANGE: i32 = -JOY_UP_RANGE;
 pub struct Settings {
     pub keyboard_path: String,
     pub poll_rate: Duration,
-    pub mod1_incr: f32,
-    pub mod1_around_y: f32,
-    pub mod1_trigger_mul: f32,
-    pub mod2_mul: f32,
+    pub mod1_incr: I1F7,
+    pub mod1_around_y: I1F7,
+    pub mod1_trigger_mul: I1F7,
+    pub mod2_mul: I1F7,
     pub binds: Binds,
 }
 
@@ -62,10 +63,10 @@ impl Default for Settings {
             keyboard_path: "/dev/input/by-id/usb-CATEX_TECH._84EC-XRGB_CA2017090002-event-kbd"
                 .to_string(),
             poll_rate: Duration::from_micros(250),
-            mod1_incr: 0.3875,
-            mod1_around_y: 0.31,
-            mod1_trigger_mul: 129.0 / 256.0,
-            mod2_mul: 48.0 / 128.0,
+            mod1_incr: I1F7::saturating_from_num(0.3875_f32),
+            mod1_around_y: I1F7::saturating_from_num(0.31_f32),
+            mod1_trigger_mul: I1F7::saturating_from_num(129.0 / 256.0 as f32),
+            mod2_mul: I1F7::saturating_from_num(48.0 / 128.0 as f32),
             binds: Binds {
                 a: EV_KEY::KEY_J,
                 b: EV_KEY::KEY_K,

@@ -3,6 +3,7 @@ use evdev_rs::{
     enums::{EventCode, EventType, EV_ABS, EV_KEY, EV_SYN},
     AbsInfo, DeviceWrapper, InputEvent, TimeVal, UInputDevice, UninitDevice,
 };
+use fixed::types::I1F7;
 use log;
 use std::io::Result;
 
@@ -135,24 +136,30 @@ impl VJoy {
         Ok(())
     }
 
-    pub fn joystick(&self, key: EV_ABS, prev_value: f32, value: f32) -> Result<()> {
-        const JOY_UP_RANGE_F32: f32 = JOY_UP_RANGE as f32;
+    const JOY_UP_RANGE_f32: f32 = JOY_UP_RANGE as f32;
+
+    pub fn joystick(&self, key: EV_ABS, prev_value: I1F7, value: I1F7) -> Result<()> {
         if prev_value != value {
-            self.device.write_event(&InputEvent {
-                time: self.now,
-                event_code: EventCode::EV_ABS(key),
-                value: (value * JOY_UP_RANGE_F32) as i32,
-            })?;
+            return self.joystick_always(key, value);
         }
         Ok(())
     }
 
-    pub fn trigger(&self, key: EV_ABS, prev_depth: f32, depth: f32) -> Result<()> {
+    pub fn joystick_always(&self, key: EV_ABS, value: I1F7) -> Result<()> {
+        self.device.write_event(&InputEvent {
+            time: self.now,
+            event_code: EventCode::EV_ABS(key),
+            value: (value.to_num::<f32>() * Self::JOY_UP_RANGE_f32) as i32,
+        })?;
+        Ok(())
+    }
+
+    pub fn trigger(&self, key: EV_ABS, prev_depth: I1F7, depth: I1F7) -> Result<()> {
         if prev_depth != depth {
             self.device.write_event(&InputEvent {
                 time: self.now,
                 event_code: EventCode::EV_ABS(key),
-                value: (127.0 + depth * 128.0) as i32, // makes no sense, but it works :)
+                value: (127.0 + depth.to_num::<f32>() * 128.0) as i32, // makes no sense, but it works :)
             })?;
         }
         Ok(())

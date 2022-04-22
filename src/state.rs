@@ -1,22 +1,23 @@
 use crate::config::{Binds, Settings};
 use crate::dir8::{Dir8, ToDir8};
 use evdev_rs::{enums::EV_KEY, InputEvent, TimeVal};
+use fixed::types::I1F7;
 use modular_bitfield::{bitfield, specifiers::B6};
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct JoyState {
     // control stick
     pub control_stick: DPadState,
-    pub control_stick_x: f32,
-    pub control_stick_y: f32,
+    pub control_stick_x: I1F7,
+    pub control_stick_y: I1F7,
     // c stick
     pub c_stick: DPadState,
-    pub c_stick_x: f32,
-    pub c_stick_y: f32,
+    pub c_stick_x: I1F7,
+    pub c_stick_y: I1F7,
     // dpad
     pub dpad: DPadState,
     // analog l trigger
-    pub l_trigger: f32,
+    pub l_trigger: I1F7,
     // digital buttons
     pub btn: JoyButtons,
     // modifiers
@@ -202,7 +203,7 @@ impl JoyState {
         let mod1 = self.m.mod1();
         let mod2 = self.m.mod2();
         let mod_changed = self.m != prev.m;
-        let j_mul = if mod2 { cfg.mod2_mul } else { 1.0 };
+        let j_mul = if mod2 { Some(cfg.mod2_mul) } else { None };
 
         // update control stick
         if self.control_stick != prev.control_stick || mod_changed {
@@ -210,64 +211,71 @@ impl JoyState {
             if active {
                 let vx = (self.control_stick.right() as i8) - (self.control_stick.left() as i8);
                 let vy = (self.control_stick.down() as i8) - (self.control_stick.up() as i8);
-                let (mut x, mut y) = (vx as f32, vy as f32);
+                let (mut x, mut y) = (I1F7::saturating_from_num(vx), I1F7::saturating_from_num(vy));
                 if mod1 {
                     let active0 = prev.control_stick.is_active();
                     let (x0, y0) = (self.control_stick_x, self.control_stick_y);
                     let (vhoriz, vvert) = (vx.abs() == 1, vy.abs() == 1);
                     if !active0 {
                         if vhoriz && vvert {
-                            y *= cfg.mod1_around_y;
+                            y = y.saturating_mul(I1F7::from_num(cfg.mod1_around_y));
                         }
                     } else {
-                        if y0.abs() > 0.01 {
-                            x = x0 + cfg.mod1_incr * vx as f32;
+                        if y0 != I1F7::ZERO {
+                            x = x0.saturating_add(cfg.mod1_incr.saturating_mul(x));
                         }
-                        if x0.abs() > 0.01 {
-                            y = y0 + cfg.mod1_around_y * vy as f32;
+                        if x0 != I1F7::ZERO {
+                            y = y0.saturating_add(cfg.mod1_around_y.saturating_mul(y));
                         }
                     }
                 }
-                if mod2 && x.abs() < 0.99 && y.abs() < 0.99 {
+                if mod2 && x.abs() < I1F7::MAX && y.abs() < I1F7::MAX {
                     if x.abs() > y.abs() {
-                        x = vx as f32;
+                        x = I1F7::saturating_from_num(vx);
                     } else {
-                        y = vy as f32;
+                        y = I1F7::saturating_from_num(vy);
                     }
                 }
-                self.control_stick_x = (x * j_mul).clamp(-1.0, 1.0);
-                self.control_stick_y = (y * j_mul).clamp(-1.0, 1.0);
+                if mod2 && (vx, vy) == (0, 1) {
+                    self.control_stick_x = I1F7::ZERO;
+                    self.control_stick_y = I1F7::from_num(0.42_f32);
+                } else {
+                    if let Some(j_mul) = j_mul {
+                        self.control_stick_x = x.saturating_mul(j_mul);
+                        self.control_stick_y = y.saturating_mul(j_mul);
+                    } else {
+                        self.control_stick_x = x;
+                        self.control_stick_y = y;
+                    }
+                }
             } else {
-                self.control_stick_x = 0.0;
-                self.control_stick_y = 0.0;
+                self.control_stick_x = I1F7::ZERO;
+                self.control_stick_y = I1F7::ZERO;
             }
         }
 
         // update C stick
         if self.c_stick != prev.c_stick || mod2 != prev.m.mod2() {
-            self.c_stick_x = ((self.c_stick.right() as i8) - (self.c_stick.left() as i8)) as f32;
-            self.c_stick_y = ((self.c_stick.down() as i8) - (self.c_stick.up() as i8)) as f32;
-            self.c_stick_x *= j_mul;
-            self.c_stick_y *= j_mul;
+            let cx = (self.c_stick.right() as i8) - (self.c_stick.left() as i8);
+            let cy = (self.c_stick.down() as i8) - (self.c_stick.up() as i8);
+            if let Some(j_mul) = j_mul {
+                self.c_stick_x = I1F7::saturating_from_num(cx).saturating_mul(j_mul);
+                self.c_stick_y = I1F7::saturating_from_num(cy).saturating_mul(j_mul);
+            } else {
+                self.c_stick_x = I1F7::saturating_from_num(cx);
+                self.c_stick_y = I1F7::saturating_from_num(cy);
+            }
         }
 
         // update L trigger (R trigger is just digital here)
         self.l_trigger = if self.btn.l() {
             if mod1 {
-                cfg.mod1_trigger_mul
+                I1F7::from_num(cfg.mod1_trigger_mul)
             } else {
-                1.0
+                I1F7::MAX
             }
         } else {
-            0.0
+            I1F7::ZERO
         };
-    }
-
-    pub fn sanity(&self) {
-        let control_stick_is_active = self.control_stick.is_active();
-        if !control_stick_is_active {
-            let control_stick_xy = (self.control_stick_x, self.control_stick_y);
-            assert_eq!(control_stick_xy, (0.0, 0.0));
-        }
     }
 }

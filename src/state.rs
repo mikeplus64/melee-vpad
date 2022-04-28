@@ -22,20 +22,6 @@ pub struct JoyState {
     pub btn: JoyButtons,
     // modifiers
     pub m: Modifiers,
-    pub updated: UpdatedTimeVal,
-}
-
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
-pub struct UpdatedTimeVal(pub TimeVal);
-
-impl Default for UpdatedTimeVal {
-    fn default() -> UpdatedTimeVal {
-        UpdatedTimeVal(TimeVal {
-            tv_sec: 0,
-            tv_usec: 0,
-        })
-    }
 }
 
 #[bitfield]
@@ -66,6 +52,7 @@ impl DPadState {
         self.left() || self.right() || self.up() || self.down()
     }
 
+    #[inline(always)]
     pub fn update<B: ToDir8>(&mut self, binds: &B, key: EV_KEY, value: bool) -> bool {
         use Dir8::*;
         let dir = if let Some(dir) = binds.dir(key) {
@@ -106,7 +93,7 @@ impl DPadState {
         true
     }
 
-    #[inline]
+    #[inline(always)]
     fn on_up(&mut self, value: bool) {
         self.set_up(value);
         self.set_up_held(value);
@@ -117,7 +104,7 @@ impl DPadState {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn on_down(&mut self, value: bool) {
         self.set_down(value);
         self.set_down_held(value);
@@ -128,7 +115,7 @@ impl DPadState {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn on_left(&mut self, value: bool) {
         self.set_left(value);
         self.set_left_held(value);
@@ -139,7 +126,7 @@ impl DPadState {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn on_right(&mut self, value: bool) {
         self.set_right(value);
         self.set_right_held(value);
@@ -167,7 +154,7 @@ pub struct JoyButtons {
 }
 
 impl JoyState {
-    pub fn update_flags(&mut self, cfg: &Binds, event: InputEvent) -> bool {
+    pub fn update_flags(&mut self, cfg: &Binds, event: &InputEvent) -> bool {
         if let evdev_rs::enums::EventCode::EV_KEY(k) = event.event_code {
             let value = event.value;
             if value > 1 {

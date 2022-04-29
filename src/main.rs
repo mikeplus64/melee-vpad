@@ -1,15 +1,12 @@
 #[allow(non_snake_case)]
 use env_logger;
-use evdev_rs::{
-    enums::{EventCode, EV_ABS, EV_KEY, EV_SYN},
-    Device, ReadFlag,
-};
+use evdev_rs::{enums::EventCode, Device, ReadFlag};
 use std::error::Error;
 use std::fs::File;
-use std::time::Instant;
 
 mod config;
 mod dir8;
+mod dpad;
 mod state;
 mod vjoy;
 use crate::config::Settings;
@@ -26,64 +23,49 @@ fn main() -> Result<(), Box<dyn Error>> {
         Device::new_from_file(file).expect("Could not create keyboard device")
     };
 
-    let mut vjoy = VJoy::new(&settings)?;
+    let vjoy = VJoy::new(&settings)?;
 
     let mut state = JoyState::default();
-    let mut prev = JoyState::default();
+    let binds_map = BindsMap::create(&settings.binds);
 
-    'outer: loop {
-        let mut updated = None;
+    let poll_rate = settings.poll_rate;
 
-        if let Ok((_status, ev)) = kbd.next_event(ReadFlag::NORMAL) {
-            if !ev.is_code(&EventCode::EV_SYN(EV_SYN::SYN_REPORT)) {
-                let have_changes = state.update_flags(&settings.binds, &ev);
-                if have_changes {
-                    state.update_analog(&settings, &prev);
-                    updated = Some(ev.time);
+    if poll_rate.as_millis() > 0 {
+        log::debug!("using polling event loop");
+        loop {
+            let t0 = std::time::Instant::now();
+            if !kbd.has_event_pending() {
+                // do nothing
+            } else if let Ok((_status, ev)) = kbd.next_event(ReadFlag::NORMAL) {
+                match ev.event_code {
+                    EventCode::EV_KEY(key) if !(ev.value > 1) => {
+                        let value = ev.value != 0;
+                        if let Some(update) = binds_map.lookup_key(key, value) {
+                            update.run(&mut state, &vjoy, &settings);
+                        }
+                    }
+                    _ => {}
                 }
             }
+            let dt = t0.elapsed();
+            if dt < poll_rate {
+                std::thread::sleep(poll_rate - dt);
+            }
         }
-
-        if updated.is_none() {
-            continue 'outer;
+    } else {
+        log::debug!("using blocking event loop");
+        while let Ok((_status, ev)) = kbd.next_event(ReadFlag::BLOCKING) {
+            match ev.event_code {
+                EventCode::EV_KEY(key) if !(ev.value > 1) => {
+                    let value = ev.value != 0;
+                    if let Some(update) = binds_map.lookup_key(key, value) {
+                        update.run(&mut state, &vjoy, &settings);
+                    }
+                }
+                _ => {}
+            }
         }
-
-        // control stick
-        vjoy.now = updated.unwrap();
-        vjoy.joystick(EV_ABS::ABS_X, prev.control_stick_x, state.control_stick_x)?;
-        vjoy.joystick(EV_ABS::ABS_Y, prev.control_stick_y, state.control_stick_y)?;
-
-        // L trigger
-        vjoy.trigger(EV_ABS::ABS_Z, prev.l_trigger, state.l_trigger)?;
-
-        // buttons
-        if prev.btn.into_bytes() != state.btn.into_bytes() {
-            vjoy.key(EV_KEY::BTN_EAST, prev.btn.a(), state.btn.a())?;
-            vjoy.key(EV_KEY::BTN_SOUTH, prev.btn.b(), state.btn.b())?;
-            vjoy.key(EV_KEY::BTN_NORTH, prev.btn.x(), state.btn.x())?;
-            vjoy.key(EV_KEY::BTN_TL, prev.btn.y(), state.btn.y())?;
-            vjoy.key(EV_KEY::BTN_TR, prev.btn.r(), state.btn.r())?;
-            vjoy.key(EV_KEY::BTN_Z, prev.btn.z(), state.btn.z())?;
-            vjoy.key(EV_KEY::BTN_START, prev.btn.start(), state.btn.start())?;
-        }
-
-        // c stick
-        vjoy.joystick(EV_ABS::ABS_RX, prev.c_stick_x, state.c_stick_x)?;
-        vjoy.joystick(EV_ABS::ABS_RY, prev.c_stick_y, state.c_stick_y)?;
-
-        // // dpad
-        if prev.dpad.into_bytes() != state.dpad.into_bytes() {
-            vjoy.key(EV_KEY::BTN_DPAD_UP, prev.dpad.up(), state.dpad.up())?;
-            vjoy.key(EV_KEY::BTN_DPAD_DOWN, prev.dpad.down(), state.dpad.down())?;
-            vjoy.key(EV_KEY::BTN_DPAD_LEFT, prev.dpad.left(), state.dpad.left())?;
-            vjoy.key(
-                EV_KEY::BTN_DPAD_RIGHT,
-                prev.dpad.right(),
-                state.dpad.right(),
-            )?;
-        }
-
-        vjoy.sync()?;
-        prev = state;
     }
+
+    Ok(())
 }

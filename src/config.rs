@@ -1,6 +1,7 @@
 use evdev_rs::enums::EV_KEY;
 use fixed::types::I1F7;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DurationMilliSecondsWithFrac};
 use std::error::Error;
 use std::fs;
 use std::time::Duration;
@@ -9,14 +10,17 @@ use xdg;
 pub const JOY_UP_RANGE: i32 = 127;
 pub const JOY_DOWN_RANGE: i32 = -JOY_UP_RANGE;
 
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub keyboard_path: String,
+    #[serde_as(as = "DurationMilliSecondsWithFrac")]
     pub poll_rate: Duration,
     pub mod1_incr: I1F7,
     pub mod1_around_y: I1F7,
     pub mod1_trigger_mul: I1F7,
-    pub mod2_mul: I1F7,
+    pub mod2_x_mul: I1F7,
+    pub mod2_y_mul: I1F7,
     pub binds: Binds,
 }
 
@@ -66,7 +70,8 @@ impl Default for Settings {
             mod1_incr: I1F7::saturating_from_num(0.3875_f32),
             mod1_around_y: I1F7::saturating_from_num(0.31_f32),
             mod1_trigger_mul: I1F7::saturating_from_num(129.0 / 256.0 as f32),
-            mod2_mul: I1F7::saturating_from_num(48.0 / 128.0 as f32),
+            mod2_x_mul: I1F7::saturating_from_num(48.0 / 128.0 as f32),
+            mod2_y_mul: I1F7::saturating_from_num(48.0 / 128.0 as f32),
             binds: Binds {
                 a: EV_KEY::KEY_J,
                 b: EV_KEY::KEY_K,

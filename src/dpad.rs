@@ -87,7 +87,7 @@ pub struct DPadState {
 }
 
 impl DPadState {
-    #[inline(always)]
+    #[inline]
     pub fn on_up(&mut self, value: bool) {
         self.set_up(value);
         self.set_up_held(value);
@@ -98,7 +98,7 @@ impl DPadState {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_down(&mut self, value: bool) {
         self.set_down(value);
         self.set_down_held(value);
@@ -109,7 +109,7 @@ impl DPadState {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_left(&mut self, value: bool) {
         self.set_left(value);
         self.set_left_held(value);
@@ -120,7 +120,7 @@ impl DPadState {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn on_right(&mut self, value: bool) {
         self.set_right(value);
         self.set_right_held(value);
